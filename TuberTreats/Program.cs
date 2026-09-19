@@ -66,7 +66,9 @@ app.UseAuthorization();
 
 //add endpoints here
 
+//____________
 //TuberOrder
+//____________
 app.MapGet("/api/tuberOrders", () =>
 {
     return tuberOrders.Select(o => new TuberOrderDto
@@ -81,10 +83,15 @@ app.MapGet("/api/tuberOrders", () =>
 
 app.MapGet("/api/tuberOrders/{id}", (int id) =>
 {
+    if (tuberOrders.FirstOrDefault(to => to.Id == id) == null)
+    {
+        return Results.NotFound();
+    }
+
     List<int> toppingId = tuberToppings.Where(tt => tt.TuberOrderId == id)
     .Select(tt => tt.ToppingId).ToList();
 
-    return tuberOrders.Where(to => to.Id == id)
+    return Results.Ok(tuberOrders.Where(to => to.Id == id)
     .Select(to => new TuberOrderDto
     {
         Id = to.Id,
@@ -111,7 +118,8 @@ app.MapGet("/api/tuberOrders/{id}", (int id) =>
             Id = t.Id,
             Name = t.Name
         }).ToList()
-    });
+    })
+    );
 });
 
 app.MapPost("/api/tuberorders", (TuberOrder tuberOrder) =>
@@ -258,7 +266,11 @@ app.MapDelete("/api/tuberTopping/{id}", (int id) =>
     return Results.NoContent();
 });
 
+
+//____________
 //Customers
+//____________
+
 app.MapGet("api/customers/", () =>
 {
     return customers.Select(c => new CustomerDto
@@ -316,7 +328,9 @@ app.MapDelete("/api/customers/{id}", (int id) =>
 });
 
 
+//____________
 //TuberDrivers
+//____________
 app.MapGet("/api/tuberdrivers", () =>
 {
     return tuberDrivers.Select(td => new TuberDriverDto
