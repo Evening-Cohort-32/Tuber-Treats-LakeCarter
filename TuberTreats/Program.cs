@@ -1,3 +1,4 @@
+using System.Reflection.Metadata.Ecma335;
 using Microsoft.AspNetCore.Components;
 using TuberTreats.Models;
 using TuberTreats.Models.DTO;
@@ -36,9 +37,9 @@ List<TuberOrder> tuberOrders = new List<TuberOrder>
 
 List<TuberTopping> tuberToppings = new List<TuberTopping>
 {
-    new TuberTopping {Id=1, TuberOrderId=1, TuberToppingId = 1},
-    new TuberTopping {Id=2, TuberOrderId=1, TuberToppingId=2},
-    new TuberTopping {Id =3, TuberOrderId=2, TuberToppingId=5}
+    new TuberTopping {Id=1, TuberOrderId=1, ToppingId = 1},
+    new TuberTopping {Id=2, TuberOrderId=1, ToppingId=2},
+    new TuberTopping {Id =3, TuberOrderId=2, ToppingId=5}
 };
 
 var builder = WebApplication.CreateBuilder(args);
@@ -81,7 +82,7 @@ app.MapGet("/api/tuberOrders", () =>
 app.MapGet("/api/tuberOrders/{id}", (int id) =>
 {
     List<int> toppingId = tuberToppings.Where(tt => tt.TuberOrderId == id)
-    .Select(tt => tt.TuberToppingId).ToList();
+    .Select(tt => tt.ToppingId).ToList();
 
     return tuberOrders.Where(to => to.Id == id)
     .Select(to => new TuberOrderDto
@@ -129,7 +130,7 @@ app.MapPost("/api/tuberorders", (TuberOrder tuberOrder) =>
 
 
     List<int> toppingId = tuberToppings.Where(tt => tt.TuberOrderId == tuberOrder.Id)
-    .Select(tt => tt.TuberToppingId).ToList();
+    .Select(tt => tt.ToppingId).ToList();
 
     return Results.Created($"/api/tuberOrders/{tuberOrder.Id}", new TuberOrderDto
     {
@@ -155,9 +156,35 @@ app.MapPost("/api/tuberorders", (TuberOrder tuberOrder) =>
     });
 });
 
+app.MapPut("/api/tuberOrders/{id}", (int id, TuberOrder tuberOrder) =>
+{
+    TuberOrder tuberOrderToUpdate = tuberOrders.FirstOrDefault(to => to.Id == id);
+    //check if order is valid
+    if (tuberOrder.Id != id || tuberOrderToUpdate == null)
+    {
+        return Results.BadRequest();
+    }
 
+    else tuberOrders[id - 1] = tuberOrder;
+    return Results.NoContent();
+});
 
+app.MapPost("/api/tuberOrders/{id}/complete", (int id) =>
+{
+    TuberOrder tuberOrderToComplete = tuberOrders.FirstOrDefault(to => to.Id == id);
+    if (tuberOrderToComplete == null)
+    {
+        return Results.BadRequest($"There is no order with id {id}");
+    }
+
+    tuberOrderToComplete.DeliveredOnDate = DateTime.Now;
+    tuberOrders[id - 1] = tuberOrderToComplete;
+    return Results.Created();
+});
+
+//____________________
 //Topping
+//____________________
 app.MapGet("/api/toppings/", () =>
 {
     return toppings.Select(t => new ToppingDto
@@ -182,33 +209,54 @@ app.MapGet("/api/toppings/{id}", (int id) =>
     });
 });
 
-
+//____________________
 //TuberToppings
+//____________________
 app.MapGet("/api/tubertoppings", () =>
 {
     return tuberToppings.Select(tt => new TuberToppingDto
     {
         Id = tt.Id,
         TuberOrderId = tt.TuberOrderId,
-        TuberToppingId = tt.TuberToppingId
+        ToppingId = tt.ToppingId
     });
 });
 
-app.MapGet("/api/tubertoppings/{id}", (int id) =>
+app.MapPost("/api/tubertoppings/", (TuberTopping tuberTopping) =>
 {
-    TuberTopping tuberTopping = tuberToppings.FirstOrDefault(tt => tt.Id == id);
-    if (tuberTopping == null)
+    tuberTopping.Id = tuberToppings.Max(tt => tt.Id) + 1;
+    //Check if orderId and topping Id are valid.
+    if (tuberOrders.FirstOrDefault(to => to.Id == tuberTopping.TuberOrderId) == null)
     {
-        return Results.NotFound();
+        return Results.BadRequest($"There is no tuber order with id {tuberTopping.TuberOrderId}");
     }
-    else return Results.Ok(new TuberToppingDto
+
+    if (toppings.FirstOrDefault(t => t.Id == tuberTopping.ToppingId) == null)
+    {
+        return Results.BadRequest($"There is no topping with id {tuberTopping.ToppingId}");
+    }
+
+    tuberToppings.Add(tuberTopping);
+    return Results.Created($"/api/tuberToppings/{tuberTopping.Id}", new TuberToppingDto
     {
         Id = tuberTopping.Id,
         TuberOrderId = tuberTopping.TuberOrderId,
-        TuberToppingId = tuberTopping.TuberToppingId
+        ToppingId = tuberTopping.ToppingId
     });
 });
 
+//remove topping from order
+app.MapDelete("/api/tuberTopping/{id}", (int id) =>
+{
+    TuberTopping tuberToppingToDelete = tuberToppings.FirstOrDefault(to => to.Id == id);
+    if (tuberToppingToDelete == null)
+    {
+        return Results.BadRequest($"There is no tuber topping with id{id}");
+    }
+
+    tuberToppings.Remove(tuberToppingToDelete);
+    return Results.NoContent();
+});
 
 //Customers
 app.MapGet("api/customers/", () =>
@@ -243,6 +291,28 @@ app.MapGet("api/customers/{id}", (int id) =>
             DeliveredOnDate = to.DeliveredOnDate,
         }).ToList()
     });
+});
+
+app.MapPost("/api/customers/", (Customer customer) =>
+{
+    customer.Id = customers.Max(c => c.Id) + 1;
+    customers.Add(customer);
+
+    return Results.Created($"/api/customers/{customer.Id}", new CustomerDto
+    {
+        Id = customer.Id,
+        Name = customer.Name,
+        Address = customer.Address
+    });
+});
+
+app.MapDelete("/api/customers/{id}", (int id) =>
+{
+    Customer customerToDelete = customers.FirstOrDefault(c => c.Id == id);
+    if (customerToDelete == null) { return Results.BadRequest($"There is no customer with id {id}"); }
+
+    customers.Remove(customerToDelete);
+    return Results.NoContent();
 });
 
 
